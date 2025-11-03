@@ -19,7 +19,7 @@ kind: Deployment
 metadata:
   name: ktcloud-blue
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       color: blue
@@ -39,28 +39,24 @@ spec:
         - containerPort: 80   # nginx 포트 번호
 
 ---
-# deploymnet : green 
-apiVersion: apps/v1
-kind: Deployment
+# keda 구성
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
 metadata:
-  name: ktcloud-green
+  name: cron-scaler
+  namespace: default
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      color: green
-  template:
+  scaleTargetRef:
+    name: ktcloud-blue # ScaledObject가 대상으로 하는 Deployment 이름
+  pollingInterval: 30  # KEDA가 상태를 확인하는 주기 (초)
+  cooldownPeriod: 300  # 마지막 스케일 후 안정화를 위한 대기 시간 (초)
+  minReplicaCount: 3   # 최소 Pod 수
+  maxReplicaCount: 6  # 최대 Pod 수
+  triggers:
+  - type: cron  # 시간에 다른 스케일 조정
     metadata:
-      labels:
-        color: green
-    spec:
-      containers:
-      - name: ktcloudctn-green
-        image: brian24/ktcloudinfra:green
-        resources:
-          limits:    # limits(최대)/requests(최소보장)
-            memory: "32Mi"
-            cpu: "250m"    # 1000m 이 1개 cpu 
-        ports:
-        - containerPort: 80   # nginx 포트 번호
-
+      timezone: "Asia/Seoul"  # 원하는 시간대
+      start: "46 * * * *"      # 시작 시점 (Cron 표현식)  분/시/일/월/요일(0~7)
+      end: "50 * * * *"       # 종료 시점 (Cron 표현식)
+      desiredReplicas: "6"    # 스케일링할 Pod 수
+ 
